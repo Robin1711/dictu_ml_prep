@@ -1,0 +1,11 @@
+**/.env*
+**/.vscode/
+
+# Data files - can be downloaded from kaggle
+# Ignore everything in the data folder, allow README files in the data folder
+data/*
+!data/README*
+
+# MacOS files
+.DS_Store
+._*
