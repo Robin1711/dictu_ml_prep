@@ -1,0 +1,24 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+      "PostgreSQLServerName": {
+        "value": "dtppostgresql"
+      },
+      "location": {
+        "value": "westeurope"
+      },
+      "administratorLogin": {
+        "value": "db_admin"
+      },
+      "administratorLoginPassword": {
+        "value": "db_admin_secure_password"
+      },
+      "storageSizeGB": {
+        "value": 32
+      },
+      "registryName": {
+          "value": "dtpcontainerregistry"
+      }
+    }
+  }

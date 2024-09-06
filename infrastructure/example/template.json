@@ -1,0 +1,177 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "PostgreSQLServerName": {
+          "type": "string"
+        },
+        "location": {
+          "type": "string",
+          "defaultValue": "westeurope"
+        },
+        "administratorLogin": {
+          "type": "string"
+        },
+        "administratorLoginPassword": {
+          "type": "securestring"
+        },
+        "skuName": {
+          "type": "string",
+          "defaultValue": "Standard_B1ms",
+          "metadata": { "description": "Name of the PostgreSQL flexible server." }
+        },
+        "skuFamily": {
+          "type": "string",
+          "defaultValue": "B"
+        },
+        "skuComputeTier": {
+          "type": "string",
+          "defaultValue": "Burstable"
+        },
+        "skuCapacityVirtualCores": {
+          "type": "int",
+          "defaultValue": 1
+        },
+        "storageSizeGB": {
+          "type": "int",
+          "defaultValue": 32,
+          "metadata": { "description": "Name of the PostgreSQL flexible server." }
+        },
+        "registryName": {
+          "type": "string"
+        }
+    },
+    "functions": [],
+    "variables": {},
+    "resources": [
+        {
+            "type": "Microsoft.DBforPostgreSQL/flexibleServers",
+            "apiVersion": "2023-12-01-preview",
+            "name": "[parameters('PostgreSQLServerName')]",
+            "location": "[parameters('location')]",
+            "tags": {
+                "Creator": "Robin Sommer",
+                "Owner": "Niek Derksen"
+            },
+            "sku": {
+              "name": "[parameters('skuName')]",
+              "tier": "[parameters('skuComputeTier')]",
+              "family": "[parameters('skuFamily')]",
+              "capacity": "[parameters('skuCapacityVirtualCores')]"
+            },
+            "properties": {
+                "administratorLogin": "[parameters('administratorLogin')]",
+                "administratorLoginPassword": "[parameters('administratorLoginPassword')]",  
+                "version": "16",
+                "availabilityZone": "1",
+                "storage": {"storageSizeGB": "[parameters('storageSizeGB')]", "storageSku": "Standard_LRS", "autoGrow": "Disabled" },
+                "replica": { "role": "Primary" },
+                "replicationRole": "Primary",
+                "network": { "publicNetworkAccess": "Enabled" },
+                "dataEncryption": { "type": "SystemManaged" },
+                "authConfig": { "activeDirectoryAuth": "Disabled", "passwordAuth": "Enabled" },
+                "backup": { "backupRetentionDays": 7, "geoRedundantBackup": "Disabled" },
+                "highAvailability": { "mode": "Disabled" },
+                "maintenanceWindow": { "customWindow": "Disabled", "dayOfWeek": 0, "startHour": 0, "startMinute": 0 }
+            }
+        },
+        {
+            "type": "Microsoft.DBforPostgreSQL/flexibleServers/advancedThreatProtectionSettings",
+            "apiVersion": "2023-12-01-preview",
+            "name": "[concat(parameters('PostgreSQLServerName'), '/Default')]",
+            "dependsOn": [ "[resourceId('Microsoft.DBforPostgreSQL/flexibleServers', parameters('PostgreSQLServerName'))]" ],
+            "properties": { "state": "Disabled" }
+        },
+        {
+            "type": "Microsoft.DBforPostgreSQL/flexibleServers/firewallRules",
+            "apiVersion": "2023-12-01-preview",
+            "name": "[concat(parameters('PostgreSQLServerName'), '/AllowAll_2024-5-28_9-3-52')]",
+            "dependsOn": [ "[resourceId('Microsoft.DBforPostgreSQL/flexibleServers', parameters('PostgreSQLServerName'))]" ],
+            "properties": { "startIpAddress": "0.0.0.0", "endIpAddress": "255.255.255.255" }
+        },
+        {
+            "type": "Microsoft.DBforPostgreSQL/flexibleServers/firewallRules",
+            "apiVersion": "2023-12-01-preview",
+            "name": "[concat(parameters('PostgreSQLServerName'), '/AllowAllAzureServicesAndResourcesWithinAzureIps_2024-5-28_12-39-10')]",
+            "dependsOn": ["[resourceId('Microsoft.DBforPostgreSQL/flexibleServers', parameters('PostgreSQLServerName'))]"],
+            "properties": { "startIpAddress": "0.0.0.0", "endIpAddress": "0.0.0.0" }
+        },
+        {
+          "type": "Microsoft.ContainerRegistry/registries",
+          "apiVersion": "2023-11-01-preview",
+          "name": "[parameters('registryName')]",
+          "location": "[parameters('location')]",
+          "tags": { "Creator": "Robin Sommer", "Owner": "Niek Derksen" },
+          "sku": { "name": "Basic", "tier": "Basic" },
+          "properties": {
+              "adminUserEnabled": true,
+              "policies": {
+                  "quarantinePolicy": { "status": "disabled" },
+                  "trustPolicy": { "type": "Notary", "status": "disabled" },
+                  "retentionPolicy": { "days": 7, "status": "disabled" },
+                  "exportPolicy": { "status": "enabled" },
+                  "azureADAuthenticationAsArmPolicy": { "status": "enabled" },
+                  "softDeletePolicy": { "retentionDays": 7, "status": "disabled" }
+              },
+              "encryption": { "status": "disabled" },
+              "dataEndpointEnabled": false,
+              "publicNetworkAccess": "Enabled",
+              "networkRuleBypassOptions": "AzureServices",
+              "zoneRedundancy": "Disabled",
+              "anonymousPullEnabled": false,
+              "metadataSearch": "Disabled"
+    }
+      },
+      {
+          "type": "Microsoft.ContainerRegistry/registries/scopeMaps",
+          "apiVersion": "2023-11-01-preview",
+          "name": "[concat(parameters('registryName'), '/_repositories_admin')]",
+          "dependsOn": [ "[resourceId('Microsoft.ContainerRegistry/registries', parameters('registryName'))]" ],
+          "properties": {
+              "description": "Can perform all read, write and delete operations on the registry",
+              "actions": [ "repositories/*/metadata/read", "repositories/*/metadata/write", "repositories/*/content/read", "repositories/*/content/write", "repositories/*/content/delete" ]
+              }
+      },
+      {
+          "type": "Microsoft.ContainerRegistry/registries/scopeMaps",
+          "apiVersion": "2023-11-01-preview",
+          "name": "[concat(parameters('registryName'), '/_repositories_pull')]",
+          "dependsOn": [ "[resourceId('Microsoft.ContainerRegistry/registries', parameters('registryName'))]" ],
+          "properties": {
+              "description": "Can pull any repository of the registry",
+              "actions": [ "repositories/*/content/read" ]
+          }
+      },
+      {
+          "type": "Microsoft.ContainerRegistry/registries/scopeMaps",
+          "apiVersion": "2023-11-01-preview",
+          "name": "[concat(parameters('registryName'), '/_repositories_pull_metadata_read')]",
+          "dependsOn": [ "[resourceId('Microsoft.ContainerRegistry/registries', parameters('registryName'))]" ],
+          "properties": {
+              "description": "Can perform all read operations on the registry",
+              "actions": [ "repositories/*/content/read", "repositories/*/metadata/read" ]
+          }
+      },
+      {
+          "type": "Microsoft.ContainerRegistry/registries/scopeMaps",
+          "apiVersion": "2023-11-01-preview",
+          "name": "[concat(parameters('registryName'), '/_repositories_push')]",
+          "dependsOn": [ "[resourceId('Microsoft.ContainerRegistry/registries', parameters('registryName'))]" ],
+          "properties": {
+              "description": "Can push to any repository of the registry",
+              "actions": [ "repositories/*/content/read", "repositories/*/content/write" ]
+          }
+      },
+      {
+          "type": "Microsoft.ContainerRegistry/registries/scopeMaps",
+          "apiVersion": "2023-11-01-preview",
+          "name": "[concat(parameters('registryName'), '/_repositories_push_metadata_write')]",
+          "dependsOn": [ "[resourceId('Microsoft.ContainerRegistry/registries', parameters('registryName'))]" ],
+          "properties": {
+              "description": "Can perform all read and write operations on the registry",
+              "actions": [ "repositories/*/metadata/read", "repositories/*/metadata/write", "repositories/*/content/read", "repositories/*/content/write" ]
+          }
+      }
+    ],
+    "outputs": {}
+}
